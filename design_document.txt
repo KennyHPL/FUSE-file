@@ -1,0 +1,175 @@
+Benjamin D Trotter
+Kenny Luu
+Matthew Tan
+Jose Dario Torres
+
+FAT-Based Fuse Filesystem
+
+A. Goal
+In this assignment, we aimed to create a FAT-based filesystem in user space using the FUSE api.
+
+B. Assumptions
+We are assuming: 
+   I)   Files/dirs are only to be created, read, or removed
+   II)  Permissions are not needed in the implementation
+   III) We need only account for block sizes of 512 or 8KB and no other will be needed
+
+C. Design
+The design of the filesystem mwas brokoen down into four files:
+	I)  superblock.c/superblock.h - Header and implementation of a superblock struct.
+	II)  directory.h directory.c  - Header and implementation of our directory struct for use within the file system.
+	III) fsbase.h/fsbase.h        - Header and implementation of the filesystem utilizing the superblock and directory structs to form the core of the filesystem image.
+	IV)  main.c                   - The actual implementation of the filesystem; where the fuse api is called/
+
+D. Implementation
+
+/************/
+fsbase
+/************/
+structs:
+   SuperBlock
+
+functions:
+   sb_init              - initializes the following values of superblock:
+                            . total blocks
+                            . File Allocation Table
+                            . block size
+                            . start of the root directory
+
+
+/************/
+directory
+/************/
+
+structs:
+   Directory
+
+functions:
+   dir_init             - initializes the following values of the directory:
+                            . creation time
+                            . modification time
+                            . access time
+                            . starting block 
+                            . name
+   dir_updateModificationTime - updates directory's last update time
+   dir_updateAccessTime - updates access time                              
+
+
+/************/
+fsbase
+/************/
+
+structs: 
+   Filesystem:
+   Directory Location
+
+functions:
+   splitPath            - seperates file/directory name from rest of path
+   fsb_load             - loads storage binary file
+   fsb_init             - initializes storage binary file
+   fsb_pathToDirectory  - acquire block & index of directory (DirectoryLocation struct)
+   fsb_readDir          - reads from directory location
+   fsb_writeDir         - writes from specified directory
+   fsb_read             - reads from file (doesn't change access times)
+   fsb_write            - writes to file
+   fsb_addDir           - creates new directoryand places in directory location (if provided)
+   fsb_removeFile       - removes file/empty folder from directory
+   fsb_freeChain        - frees all blocks in chain 
+   fsb_findFreeBlock    - finds free block and marks it as last block ni file
+   fsb_expandBlock      - changes block to point to newly allocated block
+
+
+/************/
+main.c (Full implementation)
+/************/
+
+   ops_getattr          - returns file attributes in the form of a stat struct
+
+/======================== psuedocode
+      procedure ops_getattr : parameters [path, buf]
+         fsb.get_path(path) -> dir
+         dir.info -> buf
+/========================
+
+   ops_access           - checks if path exists 
+   ops_readdir          - gets directory entries
+         
+/======================== psuedocode
+      procedure ops_readdir : parameters [path, buf, fileInfo]
+         fsb.get_path(path)
+           ...
+         if fsb.readDir not = 1
+            return fail
+         end if
+           ...
+         for fileName in directory
+            insert directory entries into buf
+         end for
+/========================
+
+   ops_opendir          - opens directory for reading
+   ops_mkdir            - creates directory at a given path
+
+/======================== psuedocode
+      procedure ops_mkdir : parameters [path]
+         call fsb.addDir
+/========================
+
+   ops_rmdir            - removes directory at a given path
+
+/======================== psuedocode
+      procedure ops_rmdir : parameters [path]
+         call fsb.removeFile(path)
+/========================
+
+   ops_open             - opens file 
+
+/======================== psuedocode
+      procedure ops_open : parameters [path]
+         fsb.pathToDirectory(path)
+/========================
+
+   ops_read             - reads a determined amomunt of bytes from file into buffer
+
+/======================== psuedocode
+      procedure ops_read : parameters [path, buf]
+           ...
+         fsb.pathToDirectory -> dir
+           ...
+         fsb.readDir(dir)
+/========================
+
+   ops_write            - writes a determined amount of bytes into file from buffer
+
+/======================== psuedocode
+      procedure ops_write : parameters [path]
+           ...
+         fsb.pathToDirectory(path) -> dir
+           ...
+         fsb.writeDir(dir)
+/========================
+
+   ops_create           - 
+
+/======================== psuedocode
+      procedure ops_create : parameters [path]
+           ...
+         (fsb.pathToDirectory(path) -> dir)
+           ...
+         if dir.flags = 1
+            return error
+         end if else
+            fsb.removeFile(path)
+         end else
+           ...
+         fsb.addDir(path)
+/========================
+
+   ops_statfs           - returns statistics about the filesystem
+   ops_unlink           - removes given file/ symbolic/hard links (NOTE: since links not supported, unlink will simply delete item)
+
+E. Testing
+Testing was taken care of by hand as our group had some issues with FileBench.
+
+F. Challenges
+The primary challenge for this assignment was getting a firm grasp on the idea of a FUSE filesystem and then implementing one using a FAT-based design. As a result, implementing the FUSE api calls provided an adequate challenge. 
